@@ -1,5 +1,12 @@
 
 const pool = require('../config/db');
+const { enqueueTaskEmail } = require('../services/mail');
+
+function queueNotification(kind, task) {
+    enqueueTaskEmail(kind, task).catch(error => {
+        console.error('No se pudo procesar el aviso por correo:', error.message);
+    });
+}
 
 const validPriorities = ['high', 'medium', 'low'];
 const isValidId = (id) => /^\d+$/.test(id) && Number(id) > 0 && Number(id) <= 2147483647;
@@ -60,6 +67,7 @@ const createTask = async (req, res) => {
         );
 
         res.status(201).json(result.rows[0]);
+        queueNotification('created', result.rows[0]);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error interno del servidor' });
@@ -120,6 +128,7 @@ const updateTask = async (req, res) => {
         }
 
         res.json(result.rows[0]);
+        if (completed === true) queueNotification('completed', result.rows[0]);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error interno del servidor' });

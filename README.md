@@ -56,3 +56,9 @@ El Blueprint `render.yaml` define ambos servicios en el entorno Production, cone
 - Health check del Web Service: https://taskbat-api.onrender.com/api/health
 
 En producción, comprueba que la ruta de salud responde y que se puede crear, listar, completar, reabrir y borrar una tarea. Conserva una tarea durante un reinicio del Web Service para verificar la persistencia. Guarda capturas del panel con los tres servicios, de la app en uso y del autodespliegue tras un push.
+
+## Avisos por Zoho Mail
+
+Con el correo activado, el backend envía avisos de creación y primera finalización al destinatario fijo. El resumen de las 8:00 a. m. de Colombia lista las tareas pendientes y destaca las que llevan 24 horas o más. GitHub Actions inicia el resumen, incluso si la aplicación está cerrada.
+
+Para activar el correo, define en el backend de Render las variables de Zoho y el destinatario de `backend/.env.example`. Usa un cliente OAuth de Zoho autorizado para `ZohoMail.messages.CREATE` (servidores de EE. UU.) y configura el mismo valor aleatorio de `MAIL_JOB_TOKEN` en Render y en los secretos de GitHub Actions. El correo permanece desactivado hasta que estén presentes todos los valores. El workflow incluye un inicio manual para comprobar la configuración.

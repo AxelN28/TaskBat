@@ -1,0 +1,31 @@
+name: Resumen diario de TaskBat
+
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: taskbat-daily-mail
+
+jobs:
+  send-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MAIL_JOB_TOKEN: ${{ secrets.MAIL_JOB_TOKEN }}
+    steps:
+      - name: Solicitar el resumen al backend
+        shell: bash
+        run: |
+          if [[ -z "$MAIL_JOB_TOKEN" ]]; then
+            echo "El correo aún no está activado."
+            exit 0
+          fi
+
+          curl --silent --show-error --fail --max-time 105 --retry 2 --retry-max-time 165 \
+            --request POST \
+            --header "Authorization: Bearer $MAIL_JOB_TOKEN" \
+            https://taskbat-api.onrender.com/api/internal/mail/daily

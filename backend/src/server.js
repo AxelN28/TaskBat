@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./config/db');
 const createTable = require('./config/initDB');
+const { sendDailySummary } = require('./services/mail');
 
 require('dotenv').config();
 
@@ -15,6 +16,7 @@ const frontendOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
 app.use(cors({ origin: frontendOrigins }));
 app.use(express.json());
 app.use('/api/tasks', require('./routes/tasks.routes'));
+app.post('/api/internal/mail/daily', sendDailySummary);
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
