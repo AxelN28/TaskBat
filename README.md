@@ -35,7 +35,7 @@ El navegador carga el frontend React + Vite desde un Static Site de Render. El f
 
 ## Despliegue en Render
 
-Conecta ambos servicios al repositorio y a la rama `main`, con autodespliegue al hacer push.
+El Blueprint `render.yaml` define ambos servicios en el entorno Production, conectados a `main` con autodespliegue al hacer push. El backend referencia el PostgreSQL existente `taskboard-db` mediante su URL interna.
 
 | Configuración | Web Service | Static Site |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ Conecta ambos servicios al repositorio y a la rama `main`, con autodespliegue al
 ## URLs y verificación de producción
 
 - Dominio previsto: https://taskbat.lat
-- Static Site de Render: pendiente de registrar el enlace verificado.
-- Health check del Web Service: pendiente de registrar el enlace verificado.
+- Static Site de Render: https://taskbat-web.onrender.com
+- Health check del Web Service: https://taskbat-api.onrender.com/api/health
 
 En producción, comprueba que la ruta de salud responde y que se puede crear, listar, completar, reabrir y borrar una tarea. Conserva una tarea durante un reinicio del Web Service para verificar la persistencia. Guarda capturas del panel con los tres servicios, de la app en uso y del autodespliegue tras un push.
