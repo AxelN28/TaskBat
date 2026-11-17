@@ -19,7 +19,8 @@ const createTable = async () => {
         await pool.query(`
             ALTER TABLE tasks
             ADD COLUMN IF NOT EXISTS category VARCHAR(100) DEFAULT 'Personal',
-            ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'medium';
+            ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'medium',
+            ADD COLUMN IF NOT EXISTS due_date DATE;
         `);
 
         await pool.query(`

@@ -27,6 +27,9 @@ import {
 
 import { NotificationBell, NotificationToasts } from './notifications';
 import { useTaskNotifications } from './useTaskNotifications';
+import TaskCalendar from './TaskCalendar';
+import TaskStatistics from './TaskStatistics';
+import { formatDueDate } from './taskDates';
 import './App.css';
 
 const navigation = [
@@ -45,6 +48,8 @@ function App() {
   const [showModal, setShowModal] = useState(false);
 
   const [newTitle, setNewTitle] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
+  const [busyTaskId, setBusyTaskId] = useState(null);
   const [newCategory, setNewCategory] = useState('Personal');
   const [newPriority, setNewPriority] = useState('medium');
 
@@ -84,6 +89,32 @@ function App() {
     );
   }, [tasks, search]);
 
+  const isCalendar = activePage === 'Calendario';
+  const isStatistics = activePage === 'Estadísticas';
+
+  function openNewTask(date = '') {
+    setNewDueDate(date);
+    setError('');
+    setShowModal(true);
+  }
+
+  function replaceTask(updatedTask) {
+    setTasks(current => current.map(task => task.id === updatedTask.id ? updatedTask : task));
+  }
+
+  async function scheduleTask(id, dueDate) {
+    if (busyTaskId !== null) return;
+    setBusyTaskId(id);
+    setError('');
+    try {
+      replaceTask(await updateTask(id, { due_date: dueDate }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyTaskId(null);
+    }
+  }
+
   // Crear tarea en PostgreSQL
   const addTask = async (event) => {
     event.preventDefault();
@@ -99,12 +130,14 @@ function App() {
         description: '',
         category: newCategory,
         priority: newPriority,
+        due_date: newDueDate || null,
       });
 
       setTasks(current => [createdTask, ...current]);
       notifications.notify('created', 'Tarea creada', `«${createdTask.title}» ya está en tu lista.`);
 
       setNewTitle('');
+      setNewDueDate('');
       setNewCategory('Personal');
       setNewPriority('medium');
       setShowModal(false);
@@ -117,6 +150,8 @@ function App() {
 
   // Actualizar estado de una tarea en PostgreSQL
   const toggleTask = async (id, completed) => {
+    if (busyTaskId !== null) return;
+    setBusyTaskId(id);
     try {
       setError('');
 
@@ -130,13 +165,11 @@ function App() {
         notifications.delayReminder(updatedTask.id);
       }
 
-      setTasks(current =>
-        current.map(task =>
-          task.id === id ? updatedTask : task
-        )
-      );
+      replaceTask(updatedTask);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusyTaskId(null);
     }
   };
 
@@ -180,6 +213,8 @@ function App() {
           {navigation.map(({ label, icon: Icon }) => (
             <button
               key={label}
+              aria-current={activePage === label ? 'page' : undefined}
+              aria-label={label}
               className={`nav-item ${
                 activePage === label ? 'active' : ''
               }`}
@@ -234,27 +269,24 @@ function App() {
 
         <section className="welcome">
           <div>
-            <div className="eyebrow">
-              YOUR PERSONAL WORKSPACE
-            </div>
-
-            <h1>Bienvenido de nuevo, Axel.</h1>
-
+            <h1>{isCalendar || isStatistics ? activePage : 'Bienvenido de nuevo, Axel.'}</h1>
             <p>
-              Organiza tus prioridades. Construye algo extraordinario.
+              {isCalendar ? 'Organiza tus tareas por fecha límite.' :
+                isStatistics ? 'Consulta tu avance y revisa las tareas vencidas.' :
+                'Organiza tus prioridades. Construye algo extraordinario.'}
             </p>
           </div>
 
           <button
             className="primary-button"
-            onClick={() => setShowModal(true)}
+            onClick={() => openNewTask()}
           >
             <Plus size={17} />
             Nueva tarea
           </button>
         </section>
 
-        {error && (
+        {error && !showModal && (
           <div
             style={{
               background: '#492b2d',
@@ -269,6 +301,19 @@ function App() {
           </div>
         )}
 
+        {(isCalendar || isStatistics) && (loading ? (
+          <p className="panel view-empty" role="status">Cargando tareas…</p>
+        ) : isCalendar ? (
+          <TaskCalendar
+            tasks={tasks}
+            onCreate={openNewTask}
+            onSchedule={scheduleTask}
+            onToggle={toggleTask}
+            busyTaskId={busyTaskId}
+          />
+        ) : <TaskStatistics tasks={tasks} />)}
+
+        {!isCalendar && !isStatistics && <>
         <section className="stats-grid">
           <div className="stat-card">
             <div className="stat-top">
@@ -374,6 +419,7 @@ function App() {
                       onClick={() =>
                         toggleTask(task.id, task.completed)
                       }
+                      disabled={busyTaskId !== null}
                       aria-label="Cambiar estado de tarea"
                     >
                       <CheckCircle2 size={19} />
@@ -381,7 +427,7 @@ function App() {
 
                     <div className="task-details">
                       <strong>{task.title}</strong>
-                      <small>{task.category || 'Personal'}</small>
+                      <small>{task.category || 'Personal'}{task.due_date && ' · Vence ' + formatDueDate(task.due_date)}</small>
                     </div>
 
                     <span
@@ -459,6 +505,7 @@ function App() {
             </div>
           </div>
         </section>
+        </>}
       </main>
 
       {showModal && (
@@ -471,6 +518,7 @@ function App() {
           }}
         >
           <form className="modal" onSubmit={addTask}>
+            {error && <p className="form-error" role="alert">{error}</p>}
             <div className="panel-header">
               <h2>Nueva tarea</h2>
 
@@ -528,6 +576,18 @@ function App() {
                 <option value="medium">Media</option>
                 <option value="low">Baja</option>
               </select>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="new-task-due-date">Fecha límite (opcional)</label>
+              <input
+                id="new-task-due-date"
+                type="date"
+                min="1000-01-01"
+                max="9999-12-31"
+                value={newDueDate}
+                onChange={event => setNewDueDate(event.target.value)}
+              />
             </div>
 
             <div className="modal-actions">

@@ -12,6 +12,14 @@ const validPriorities = ['high', 'medium', 'low'];
 const isValidId = (id) => /^\d+$/.test(id) && Number(id) > 0 && Number(id) <= 2147483647;
 const isValidTitle = (title) => typeof title === 'string' && title.trim().length > 0 && title.trim().length <= 255;
 
+function isValidDueDate(value) {
+    if (value === undefined || value === null) return true;
+    if (typeof value !== 'string' || !/^[1-9]\d{3}-\d{2}-\d{2}$/.test(value)) return false;
+
+    const date = new Date(value + 'T00:00:00Z');
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 const hasInvalidDetails = ({ description, category, priority }) =>
     (description !== undefined && typeof description !== 'string') ||
     (category !== undefined && (typeof category !== 'string' || category.length > 100)) ||
@@ -21,7 +29,7 @@ const hasInvalidDetails = ({ description, category, priority }) =>
 const getTasks = async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT * FROM tasks ORDER BY id DESC'
+            'SELECT *, due_date::text AS due_date FROM tasks ORDER BY id DESC'
         );
 
         res.json(result.rows);
@@ -38,13 +46,18 @@ const createTask = async (req, res) => {
             title,
             description,
             category,
-            priority
+            priority,
+            due_date: dueDate
         } = req.body || {};
 
         if (!isValidTitle(title)) {
             return res.status(400).json({
                 message: 'El título debe tener entre 1 y 255 caracteres'
             });
+        }
+
+        if (!isValidDueDate(dueDate)) {
+            return res.status(400).json({ message: 'La fecha límite no es válida' });
         }
 
         if (hasInvalidDetails({ description, category, priority })) {
@@ -55,14 +68,15 @@ const createTask = async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO tasks
-                (title, description, category, priority)
-             VALUES ($1, $2, $3, $4)
-             RETURNING *`,
+                (title, description, category, priority, due_date)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING *, due_date::text AS due_date`,
             [
                 title.trim(),
                 description || '',
                 category || 'Personal',
-                priority || 'medium'
+                priority || 'medium',
+                dueDate ?? null
             ]
         );
 
@@ -82,7 +96,8 @@ const updateTask = async (req, res) => {
             description,
             category,
             priority,
-            completed
+            completed,
+            due_date: dueDate
         } = req.body || {};
 
         const { id } = req.params;
@@ -94,6 +109,10 @@ const updateTask = async (req, res) => {
         if ((title !== undefined && !isValidTitle(title)) ||
             (completed !== undefined && typeof completed !== 'boolean')) {
             return res.status(400).json({ message: 'Título o estado no válido' });
+        }
+
+        if (!isValidDueDate(dueDate)) {
+            return res.status(400).json({ message: 'La fecha límite no es válida' });
         }
 
         if (hasInvalidDetails({ description, category, priority })) {
@@ -108,16 +127,19 @@ const updateTask = async (req, res) => {
                  description = COALESCE($2, description),
                  category = COALESCE($3, category),
                  priority = COALESCE($4, priority),
-                 completed = COALESCE($5, completed)
+                 completed = COALESCE($5, completed),
+                 due_date = CASE WHEN $7::boolean THEN $8::date ELSE due_date END
              WHERE id = $6
-             RETURNING *`,
+             RETURNING *, due_date::text AS due_date`,
             [
                 title?.trim(),
                 description,
                 category,
                 priority,
                 completed,
-                id
+                id,
+                dueDate !== undefined,
+                dueDate ?? null
             ]
         );
 
