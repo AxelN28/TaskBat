@@ -9,7 +9,6 @@ import {
   Settings,
   Search,
   Plus,
-  Bell,
   Clock3,
   CheckCircle2,
   ListTodo,
@@ -26,6 +25,8 @@ import {
   deleteTask,
 } from './services/api';
 
+import { NotificationBell, NotificationToasts } from './notifications';
+import { useTaskNotifications } from './useTaskNotifications';
 import './App.css';
 
 const navigation = [
@@ -37,6 +38,7 @@ const navigation = [
 
 function App() {
   const [tasks, setTasks] = useState([]);
+  const notifications = useTaskNotifications(tasks);
   const [activePage, setActivePage] = useState('Dashboard');
 
   const [search, setSearch] = useState('');
@@ -100,6 +102,7 @@ function App() {
       });
 
       setTasks(current => [createdTask, ...current]);
+      notifications.notify('created', 'Tarea creada', `«${createdTask.title}» ya está en tu lista.`);
 
       setNewTitle('');
       setNewCategory('Personal');
@@ -120,6 +123,12 @@ function App() {
       const updatedTask = await updateTask(id, {
         completed: !completed,
       });
+
+      if (updatedTask.completed) {
+        notifications.notify('completed', '¡Tarea completada!', `Buen trabajo. Terminaste «${updatedTask.title}».`);
+      } else {
+        notifications.delayReminder(updatedTask.id);
+      }
 
       setTasks(current =>
         current.map(task =>
@@ -153,6 +162,7 @@ function App() {
 
   return (
     <div className="app">
+      <NotificationToasts toasts={notifications.toasts} dismiss={notifications.dismiss} />
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">
@@ -212,12 +222,11 @@ function App() {
           </div>
 
           <div className="top-actions">
-            <button
-              className="icon-button"
-              aria-label="Notificaciones"
-            >
-              <Bell size={17} />
-            </button>
+            <NotificationBell
+              history={notifications.history}
+              unread={notifications.unread}
+              markRead={notifications.markRead}
+            />
 
             <div className="avatar">AX</div>
           </div>
