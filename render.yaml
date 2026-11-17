@@ -1,0 +1,39 @@
+projects:
+  - name: TaskBat
+    environments:
+      - name: Production
+        services:
+          - type: web
+            name: taskbat-api
+            runtime: node
+            plan: free
+            region: oregon
+            branch: main
+            rootDir: backend
+            buildCommand: npm ci
+            startCommand: npm start
+            healthCheckPath: /api/health
+            autoDeployTrigger: commit
+            envVars:
+              - key: DATABASE_URL
+                fromDatabase:
+                  name: taskboard-db
+                  property: connectionString
+              - key: DB_SSL
+                value: "false"
+              - key: FRONTEND_URL
+                value: https://taskbat-web.onrender.com,https://taskbat.lat
+          - type: web
+            name: taskbat-web
+            runtime: static
+            branch: main
+            rootDir: frontend
+            buildCommand: npm ci && npm run build
+            staticPublishPath: ./dist
+            autoDeployTrigger: commit
+            envVars:
+              - key: VITE_API_URL
+                fromService:
+                  type: web
+                  name: taskbat-api
+                  envVarKey: RENDER_EXTERNAL_URL
