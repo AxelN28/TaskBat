@@ -1,6 +1,15 @@
 
 const pool = require('../config/db');
 
+const validPriorities = ['high', 'medium', 'low'];
+const isValidId = (id) => /^\d+$/.test(id) && Number(id) > 0 && Number(id) <= 2147483647;
+const isValidTitle = (title) => typeof title === 'string' && title.trim().length > 0 && title.trim().length <= 255;
+
+const hasInvalidDetails = ({ description, category, priority }) =>
+    (description !== undefined && typeof description !== 'string') ||
+    (category !== undefined && (typeof category !== 'string' || category.length > 100)) ||
+    (priority !== undefined && !validPriorities.includes(priority));
+
 // Obtener todas las tareas
 const getTasks = async (req, res) => {
     try {
@@ -22,19 +31,17 @@ const createTask = async (req, res) => {
             description,
             category,
             priority
-        } = req.body;
+        } = req.body || {};
 
-        if (!title || !title.trim()) {
+        if (!isValidTitle(title)) {
             return res.status(400).json({
-                message: 'El título es obligatorio'
+                message: 'El título debe tener entre 1 y 255 caracteres'
             });
         }
 
-        const validPriorities = ['high', 'medium', 'low'];
-
-        if (priority && !validPriorities.includes(priority)) {
+        if (hasInvalidDetails({ description, category, priority })) {
             return res.status(400).json({
-                message: 'Prioridad no válida'
+                message: 'Descripción, categoría o prioridad no válida'
             });
         }
 
@@ -66,15 +73,22 @@ const updateTask = async (req, res) => {
             category,
             priority,
             completed
-        } = req.body;
+        } = req.body || {};
 
         const { id } = req.params;
 
-        const validPriorities = ['high', 'medium', 'low'];
+        if (!isValidId(id)) {
+            return res.status(400).json({ message: 'ID de tarea no válido' });
+        }
 
-        if (priority && !validPriorities.includes(priority)) {
+        if ((title !== undefined && !isValidTitle(title)) ||
+            (completed !== undefined && typeof completed !== 'boolean')) {
+            return res.status(400).json({ message: 'Título o estado no válido' });
+        }
+
+        if (hasInvalidDetails({ description, category, priority })) {
             return res.status(400).json({
-                message: 'Prioridad no válida'
+                message: 'Descripción, categoría o prioridad no válida'
             });
         }
 
@@ -88,7 +102,7 @@ const updateTask = async (req, res) => {
              WHERE id = $6
              RETURNING *`,
             [
-                title,
+                title?.trim(),
                 description,
                 category,
                 priority,
@@ -111,6 +125,10 @@ const updateTask = async (req, res) => {
 
 // Eliminar una tarea
 const deleteTask = async (req, res) => {
+    if (!isValidId(req.params.id)) {
+        return res.status(400).json({ message: 'ID de tarea no válido' });
+    }
+
     try {
         const result = await pool.query(
             'DELETE FROM tasks WHERE id = $1 RETURNING *',

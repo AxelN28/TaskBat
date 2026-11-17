@@ -1,8 +1,14 @@
 
-const API_URL = 'http://localhost:3000/api/tasks';
+const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+
+const API_URL = baseUrl ? `${baseUrl.replace(/\/+$/, '')}/api/tasks` : '';
 
 // Función central para realizar peticiones
 const request = async (endpoint, options = {}) => {
+    if (!API_URL) {
+        throw new Error('Configura VITE_API_URL con la URL pública del backend.');
+    }
+
     const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
         headers: {
@@ -36,7 +42,7 @@ export const createTask = (task) => {
 // Actualizar una tarea
 export const updateTask = (id, changes) => {
     return request(`/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify(changes),
     });
 };
